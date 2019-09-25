@@ -343,6 +343,9 @@ func (t Text) Height() float32 {
 		// TODO: this might not work for all characters
 		switch {
 		case char == '\n':
+			if tallest == 0 {
+				tallest = atlas.Height[113] + t.LineSpacing*atlas.Height[113]
+			}
 			totalY += tallest
 			tallest = float32(0)
 			continue
