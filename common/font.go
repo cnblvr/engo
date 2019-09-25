@@ -239,7 +239,7 @@ func (f *Font) generateFontAtlas(c int) FontAtlas {
 			continue
 		}
 		d.Dot = fixed.P(int(atlas.XLocation[i]), int(atlas.YLocation[i]+float32(lineHeight.Ceil())))
-		d.DrawBytes([]byte{byte(i)})
+		d.DrawBytes([]byte(string(rune(i))))
 	}
 
 	imObj := NewImageObject(actual)
