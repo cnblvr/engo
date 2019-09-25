@@ -305,20 +305,20 @@ func (t Text) Width() float32 {
 	var currentX float32
 	var greatestX float32
 
-	for _, char := range t.Text {
+	for _, r := range []rune(t.Text) {
 		// TODO: this might not work for all characters
 		switch {
-		case char == '\n':
+		case r == '\n':
 			if currentX > greatestX {
 				greatestX = currentX
 			}
 			currentX = 0
 			continue
-		case char < 32: // all system stuff should be ignored
+		case r < 32: // all system stuff should be ignored
 			continue
 		}
 
-		currentX += atlas.Width[char] + float32(t.Font.Size)*t.LetterSpacing
+		currentX += atlas.Width[r] + float32(t.Font.Size)*t.LetterSpacing
 	}
 	if currentX > greatestX {
 		return currentX
