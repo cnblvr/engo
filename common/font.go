@@ -298,7 +298,7 @@ func (t Text) Width() float32 {
 	atlas, ok := atlasCache[*t.Font]
 	if !ok {
 		// Generate texture first
-		atlas = t.Font.generateFontAtlas(200)
+		atlas = t.Font.generateFontAtlas(UnicodeCap)
 		atlasCache[*t.Font] = atlas
 	}
 
@@ -331,7 +331,7 @@ func (t Text) Height() float32 {
 	atlas, ok := atlasCache[*t.Font]
 	if !ok {
 		// Generate texture first
-		atlas = t.Font.generateFontAtlas(200)
+		atlas = t.Font.generateFontAtlas(UnicodeCap)
 		atlasCache[*t.Font] = atlas
 	}
 
