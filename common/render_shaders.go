@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/EngoEngine/ecs"
 	"github.com/EngoEngine/engo"
@@ -1062,8 +1063,8 @@ func (l *textShader) updateBuffer(ren *RenderComponent, space *SpaceComponent) {
 		return
 	}
 
-	if len(ren.BufferContent) < 20*len(txt.Text) {
-		ren.BufferContent = make([]float32, 20*len(txt.Text)) // TODO: update this to actual value?
+	if lenText := utf8.RuneCountInString(txt.Text); len(ren.BufferContent) < 20*lenText {
+		ren.BufferContent = make([]float32, 20*lenText) // TODO: update this to actual value?
 	}
 	if changed := l.generateBufferContent(ren, space, ren.BufferContent); !changed {
 		return
@@ -1104,7 +1105,7 @@ func (l *textShader) generateBufferContent(ren *RenderComponent, space *SpaceCom
 	letterSpace := float32(txt.Font.Size) * txt.LetterSpacing
 	lineSpace := txt.LineSpacing * atlas.Height['X']
 
-	for index, char := range txt.Text {
+	for index, char := range []rune(txt.Text) {
 		// TODO: this might not work for all characters
 		switch {
 		case char == '\n':
@@ -1202,7 +1203,7 @@ func (l *textShader) Draw(ren *RenderComponent, space *SpaceComponent) {
 
 	engo.Gl.UniformMatrix3fv(l.matrixModel, false, l.modelMatrix)
 
-	engo.Gl.DrawElements(engo.Gl.TRIANGLES, 6*len(txt.Text), engo.Gl.UNSIGNED_SHORT, 0)
+	engo.Gl.DrawElements(engo.Gl.TRIANGLES, 6*utf8.RuneCountInString(txt.Text), engo.Gl.UNSIGNED_SHORT, 0)
 }
 
 func (l *textShader) Post() {

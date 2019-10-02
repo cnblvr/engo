@@ -339,7 +339,7 @@ func (t Text) Height() float32 {
 	var totalY float32
 	var tallest float32
 
-	for _, char := range t.Text {
+	for _, char := range []rune(t.Text) {
 		// TODO: this might not work for all characters
 		switch {
 		case char == '\n':
