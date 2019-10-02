@@ -314,6 +314,8 @@ func (t Text) Width() float32 {
 			}
 			currentX = 0
 			continue
+		case r == ' ':
+			break
 		case r < 32: // all system stuff should be ignored
 			continue
 		}
