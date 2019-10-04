@@ -396,7 +396,7 @@ func (t Text) Height() float32 {
 		case char < 32: // all system stuff should be ignored
 			continue
 		}
-		currentX += atlas.Width[r] + float32(t.Font.Size)*t.LetterSpacing
+		currentX += atlas.Width[char] + float32(t.Font.Size)*t.LetterSpacing
 		currentY = atlas.Height[char] + t.LineSpacing*atlas.Height[char]
 		if currentY > tallest {
 			tallest = currentY
