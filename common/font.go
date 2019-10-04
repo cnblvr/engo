@@ -141,6 +141,7 @@ func (f *Font) RenderNRGBA(text string) *image.NRGBA {
 	// Create the font context
 	c := freetype.NewContext()
 
+	_=width
 	nrgba := image.NewNRGBA(image.Rect(0, 0, 100, height))
 	draw.Draw(nrgba, nrgba.Bounds(), bg, image.ZP, draw.Src)
 
