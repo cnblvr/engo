@@ -5,8 +5,12 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"image/png"
 	"io/ioutil"
 	"log"
+	"math/rand"
+	"os"
+	"strconv"
 
 	"github.com/EngoEngine/engo"
 	"github.com/EngoEngine/gl"
@@ -158,6 +162,15 @@ func (f *Font) RenderNRGBA(text string) *image.NRGBA {
 	if err != nil {
 		log.Println(err)
 		return nil
+	}
+	file, err := os.OpenFile(strconv.Itoa(rand.Int())+".png", os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		log.Print(err)
+	} else {
+		defer file.Close()
+		if err := png.Encode(file, nrgba); err != nil {
+			log.Print(err)
+		}
 	}
 
 	return nrgba
