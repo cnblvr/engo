@@ -152,7 +152,7 @@ func (f *Font) RenderNRGBA(text string) *image.NRGBA {
 	c.SetSrc(fg)
 
 	// Draw the text.
-	pt := fixed.P(0, yBearing)
+	pt := fixed.P(100, yBearing)
 	_, err := c.DrawString(text, pt)
 	if err != nil {
 		log.Println(err)
