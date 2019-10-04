@@ -288,6 +288,8 @@ type Text struct {
 	// RightToLeft is an experimental variable used to indicate that subsequent characters come to the left of the
 	// previous character.
 	RightToLeft bool
+	WordWrap bool
+	MaxWidth float32
 }
 
 // Texture returns nil because the Text is generated from a FontAtlas. This implements the common.Drawable interface.
@@ -305,7 +307,25 @@ func (t Text) Width() float32 {
 	var currentX float32
 	var greatestX float32
 
-	for _, r := range []rune(t.Text) {
+	runes := []rune(t.Text)
+	for index, r := range runes {
+		// analyze wordwrap
+		if t.WordWrap && r == ' ' {
+			futureWidth := float32(0)
+			for idx := index+1; idx < len(runes); idx++ {
+				if r := runes[idx]; r == ' ' || r == '\n' {
+					break
+				}
+				futureWidth += atlas.Width[runes[idx]] + float32(t.Font.Size)*t.LetterSpacing
+			}
+			if t.MaxWidth < currentX + atlas.Width[r] + float32(t.Font.Size)*t.LetterSpacing + futureWidth {
+				if currentX > greatestX {
+					greatestX = currentX
+				}
+				currentX = 0
+				continue
+			}
+		}
 		// TODO: this might not work for all characters
 		switch {
 		case r == '\n':
@@ -337,11 +357,32 @@ func (t Text) Height() float32 {
 		atlasCache[*t.Font] = atlas
 	}
 
+	var currentX float32
 	var currentY float32
 	var totalY float32
 	var tallest float32
 
-	for _, char := range []rune(t.Text) {
+	runes := []rune(t.Text)
+	for index, char := range runes {
+		// analyze wordwrap
+		if t.WordWrap && char == ' ' {
+			futureWidth := float32(0)
+			for idx := index+1; idx < len(runes); idx++ {
+				if r := runes[idx]; r == ' ' || r == '\n' {
+					break
+				}
+				futureWidth += atlas.Width[runes[idx]] + float32(t.Font.Size)*t.LetterSpacing
+			}
+			if t.MaxWidth < currentX + atlas.Width[char] + float32(t.Font.Size)*t.LetterSpacing + futureWidth {
+				currentX = 0
+				if tallest == 0 {
+					tallest = atlas.Height[113] + t.LineSpacing*atlas.Height[113]
+				}
+				totalY += tallest
+				tallest = float32(0)
+				continue
+			}
+		}
 		// TODO: this might not work for all characters
 		switch {
 		case char == '\n':
@@ -350,10 +391,12 @@ func (t Text) Height() float32 {
 			}
 			totalY += tallest
 			tallest = float32(0)
+			currentX = 0
 			continue
 		case char < 32: // all system stuff should be ignored
 			continue
 		}
+		currentX += atlas.Width[r] + float32(t.Font.Size)*t.LetterSpacing
 		currentY = atlas.Height[char] + t.LineSpacing*atlas.Height[char]
 		if currentY > tallest {
 			tallest = currentY

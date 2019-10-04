@@ -1105,13 +1105,31 @@ func (l *textShader) generateBufferContent(ren *RenderComponent, space *SpaceCom
 	letterSpace := float32(txt.Font.Size) * txt.LetterSpacing
 	lineSpace := txt.LineSpacing * atlas.Height['X']
 
-	for index, char := range []rune(txt.Text) {
+	runes := []rune(txt.Text)
+	for index, char := range runes {
+		// analyze wordwrap
+		if txt.WordWrap && char == ' ' {
+			futureWidth := float32(0)
+			for idx := index+1; idx < len(runes); idx++ {
+				if r := runes[idx]; r == ' ' || r == '\n' {
+					break
+				}
+				futureWidth += atlas.Width[runes[idx]] + letterSpace
+			}
+			if txt.MaxWidth < currentX + atlas.Width[char] + letterSpace + futureWidth {
+				currentX = 0
+				currentY += atlas.Height['X'] + lineSpace
+				continue
+			}
+		}
 		// TODO: this might not work for all characters
 		switch {
 		case char == '\n':
 			currentX = 0
 			currentY += atlas.Height['X'] + lineSpace
 			continue
+		case char == ' ':
+			break
 		case char < 32: // all system stuff should be ignored
 			continue
 		}
