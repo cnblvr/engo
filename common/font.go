@@ -2,22 +2,17 @@ package common
 
 import (
 	"fmt"
-	"image"
-	"image/color"
-	"image/draw"
-	"image/png"
-	"io/ioutil"
-	"log"
-	"math/rand"
-	"os"
-	"strconv"
-
 	"github.com/EngoEngine/engo"
 	"github.com/EngoEngine/gl"
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
+	"image"
+	"image/color"
+	"image/draw"
+	"io/ioutil"
+	"log"
 )
 
 var (
@@ -145,8 +140,7 @@ func (f *Font) RenderNRGBA(text string) *image.NRGBA {
 	// Create the font context
 	c := freetype.NewContext()
 
-	_=width
-	nrgba := image.NewNRGBA(image.Rect(0, 0, 100, height))
+	nrgba := image.NewNRGBA(image.Rect(0, 0, width, height))
 	draw.Draw(nrgba, nrgba.Bounds(), bg, image.ZP, draw.Src)
 
 	c.SetDPI(dpi)
@@ -162,15 +156,6 @@ func (f *Font) RenderNRGBA(text string) *image.NRGBA {
 	if err != nil {
 		log.Println(err)
 		return nil
-	}
-	file, err := os.OpenFile(strconv.Itoa(rand.Int())+".png", os.O_CREATE|os.O_WRONLY, os.ModePerm)
-	if err != nil {
-		log.Print(err)
-	} else {
-		defer file.Close()
-		if err := png.Encode(file, nrgba); err != nil {
-			log.Print(err)
-		}
 	}
 
 	return nrgba
