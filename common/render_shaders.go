@@ -14,8 +14,29 @@ import (
 	"github.com/EngoEngine/gl"
 )
 
-// UnicodeCap is the amount of unicode characters the fonts will be able to use, starting from index 0.
-var UnicodeCap = 200
+type Range struct {
+	Min, Max rune
+}
+
+func (r *Range) Len() int {
+	return int(r.Max)-int(r.Min)
+}
+
+type Ranges []Range
+
+func (r *Ranges) Len() (out int) {
+	if r == nil {
+		return
+	}
+	for idx := range *r {
+		out += (*r)[idx].Len()
+	}
+	return
+}
+
+var LetterRanges = Ranges{
+	Range{' ', '~'},
+}
 
 const (
 	// MaxSprites is the maximum number of sprites that can comprise a single batch.
