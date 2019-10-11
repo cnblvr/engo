@@ -14,28 +14,46 @@ import (
 	"github.com/EngoEngine/gl"
 )
 
-type Range struct {
-	Min, Max rune
-}
-
-func (r *Range) Len() int {
-	return int(r.Max)-int(r.Min)
-}
-
-type Ranges []Range
-
-func (r *Ranges) Len() (out int) {
-	if r == nil {
-		return
+func MakeLetters(slices ...[]rune) string {
+	l := 0
+	for idx := range slices {
+		l += len(slices[idx])
 	}
-	for idx := range *r {
-		out += (*r)[idx].Len()
+	out := make([]rune, 0, l)
+	for idx := range slices {
+		out = append(out, slices[idx]...)
 	}
-	return
+	return string(out)
 }
 
-var LetterRanges = Ranges{
-	Range{' ', '~'},
+var LettersAlpha, LettersNumbers, LettersSpecials []rune
+var LettersRussian []rune
+
+var Letters []rune
+
+func init() {
+	LettersAlpha = make([]rune, 0, ('Z'-'A'+1)+('z'-'a'+1))
+	for c := 'A'; c <= 'Z'; c++ { LettersAlpha = append(LettersAlpha, c) }
+	for c := 'a'; c <= 'z'; c++ { LettersAlpha = append(LettersAlpha, c) }
+
+	LettersNumbers = make([]rune, 0, '9'-'0'+1)
+	for c := '0'; c <= '9'; c++ { LettersNumbers = append(LettersNumbers, c) }
+
+	LettersSpecials = make([]rune, 0, ('/'-' '+1)+('@'-':'+1)+('`'-'['+1)+('~'-'{'+1)+1/*№*/)
+	for c := ' '; c <= '/'; c++ { LettersSpecials = append(LettersSpecials, c) }
+	for c := ':'; c <= '@'; c++ { LettersSpecials = append(LettersSpecials, c) }
+	for c := '['; c <= '`'; c++ { LettersSpecials = append(LettersSpecials, c) }
+	for c := '{'; c <= '~'; c++ { LettersSpecials = append(LettersSpecials, c) }
+	LettersSpecials = append(LettersSpecials, []rune{'№'}...)
+	
+	LettersRussian = make([]rune, 0, ('я'-'А'+1)+2/*ё,Ё*/)
+	for c := 'А'; c <= 'я'; c++ { LettersRussian = append(LettersRussian, c) }
+	LettersRussian = append(LettersRussian, []rune{'ё', 'Ё'}...)
+	
+	Letters = make([]rune, 0, len(LettersAlpha) + len(LettersNumbers) + len(LettersSpecials))
+	Letters = append(Letters, LettersAlpha...)
+	Letters = append(Letters, LettersNumbers...)
+	Letters = append(Letters, LettersSpecials...)
 }
 
 const (
@@ -1108,11 +1126,15 @@ func (l *textShader) generateBufferContent(ren *RenderComponent, space *SpaceCom
 		return false
 	}
 
-	atlas, ok := atlasCache[*txt.Font]
+	atlas, ok := atlasCache[txt.Font]
 	if !ok {
 		// Generate texture first
-		atlas = txt.Font.generateFontAtlas(UnicodeCap)
-		atlasCache[*txt.Font] = atlas
+		if txt.Font.Letters == "" {
+			atlas = txt.Font.generateFontAtlas(Letters)
+		} else {
+			atlas = txt.Font.generateFontAtlas([]rune(txt.Font.Letters))
+		}
+		atlasCache[txt.Font] = atlas
 	}
 
 	var currentX float32
@@ -1127,9 +1149,9 @@ func (l *textShader) generateBufferContent(ren *RenderComponent, space *SpaceCom
 	lineSpace := txt.LineSpacing * atlas.Height['X']
 
 	runes := []rune(txt.Text)
-	for index, char := range runes {
+	for index, r := range runes {
 		// analyze wordwrap
-		if txt.WordWrap && char == ' ' {
+		if txt.WordWrap && r == ' ' {
 			futureWidth := float32(0)
 			for idx := index+1; idx < len(runes); idx++ {
 				if r := runes[idx]; r == ' ' || r == '\n' {
@@ -1137,7 +1159,7 @@ func (l *textShader) generateBufferContent(ren *RenderComponent, space *SpaceCom
 				}
 				futureWidth += atlas.Width[runes[idx]] + letterSpace
 			}
-			if txt.MaxWidth < currentX + atlas.Width[char] + letterSpace + futureWidth {
+			if txt.MaxWidth < currentX + atlas.Width[r] + letterSpace + futureWidth {
 				currentX = 0
 				currentY += atlas.Height['X'] + lineSpace
 				continue
@@ -1145,13 +1167,13 @@ func (l *textShader) generateBufferContent(ren *RenderComponent, space *SpaceCom
 		}
 		// TODO: this might not work for all characters
 		switch {
-		case char == '\n':
+		case r == '\n':
 			currentX = 0
 			currentY += atlas.Height['X'] + lineSpace
 			continue
-		case char == ' ':
+		case r == ' ':
 			break
-		case char < 32: // all system stuff should be ignored
+		case r < ' ': // all system stuff should be ignored
 			continue
 		}
 
@@ -1160,32 +1182,32 @@ func (l *textShader) generateBufferContent(ren *RenderComponent, space *SpaceCom
 		// These five are at 0, 0:
 		setBufferValue(buffer, 0+offset, currentX, &changed)
 		setBufferValue(buffer, 1+offset, currentY, &changed)
-		setBufferValue(buffer, 2+offset, atlas.XLocation[char]/atlas.TotalWidth, &changed)
-		setBufferValue(buffer, 3+offset, atlas.YLocation[char]/atlas.TotalHeight, &changed)
+		setBufferValue(buffer, 2+offset, atlas.XLocation[r]/atlas.TotalWidth, &changed)
+		setBufferValue(buffer, 3+offset, atlas.YLocation[r]/atlas.TotalHeight, &changed)
 		setBufferValue(buffer, 4+offset, tint, &changed)
 
 		// These five are at 1, 0:
-		setBufferValue(buffer, 5+offset, currentX+atlas.Width[char]+letterSpace, &changed)
+		setBufferValue(buffer, 5+offset, currentX+atlas.Width[r]+letterSpace, &changed)
 		setBufferValue(buffer, 6+offset, currentY, &changed)
-		setBufferValue(buffer, 7+offset, (atlas.XLocation[char]+atlas.Width[char])/atlas.TotalWidth, &changed)
-		setBufferValue(buffer, 8+offset, atlas.YLocation[char]/atlas.TotalHeight, &changed)
+		setBufferValue(buffer, 7+offset, (atlas.XLocation[r]+atlas.Width[r])/atlas.TotalWidth, &changed)
+		setBufferValue(buffer, 8+offset, atlas.YLocation[r]/atlas.TotalHeight, &changed)
 		setBufferValue(buffer, 9+offset, tint, &changed)
 
 		// These five are at 1, 1:
-		setBufferValue(buffer, 10+offset, currentX+atlas.Width[char]+letterSpace, &changed)
-		setBufferValue(buffer, 11+offset, currentY+atlas.Height[char]+lineSpace, &changed)
-		setBufferValue(buffer, 12+offset, (atlas.XLocation[char]+atlas.Width[char])/atlas.TotalWidth, &changed)
-		setBufferValue(buffer, 13+offset, (atlas.YLocation[char]+atlas.Height[char])/atlas.TotalHeight, &changed)
+		setBufferValue(buffer, 10+offset, currentX+atlas.Width[r]+letterSpace, &changed)
+		setBufferValue(buffer, 11+offset, currentY+atlas.Height[r]+lineSpace, &changed)
+		setBufferValue(buffer, 12+offset, (atlas.XLocation[r]+atlas.Width[r])/atlas.TotalWidth, &changed)
+		setBufferValue(buffer, 13+offset, (atlas.YLocation[r]+atlas.Height[r])/atlas.TotalHeight, &changed)
 		setBufferValue(buffer, 14+offset, tint, &changed)
 
 		// These five are at 0, 1:
 		setBufferValue(buffer, 15+offset, currentX, &changed)
-		setBufferValue(buffer, 16+offset, currentY+atlas.Height[char]+lineSpace, &changed)
-		setBufferValue(buffer, 17+offset, atlas.XLocation[char]/atlas.TotalWidth, &changed)
-		setBufferValue(buffer, 18+offset, (atlas.YLocation[char]+atlas.Height[char])/atlas.TotalHeight, &changed)
+		setBufferValue(buffer, 16+offset, currentY+atlas.Height[r]+lineSpace, &changed)
+		setBufferValue(buffer, 17+offset, atlas.XLocation[r]/atlas.TotalWidth, &changed)
+		setBufferValue(buffer, 18+offset, (atlas.YLocation[r]+atlas.Height[r])/atlas.TotalHeight, &changed)
 		setBufferValue(buffer, 19+offset, tint, &changed)
 
-		currentX += modifier * (atlas.Width[char] + letterSpace)
+		currentX += modifier * (atlas.Width[r] + letterSpace)
 	}
 
 	return changed
@@ -1208,11 +1230,15 @@ func (l *textShader) Draw(ren *RenderComponent, space *SpaceComponent) {
 		unsupportedType(ren.Drawable)
 	}
 
-	atlas, ok := atlasCache[*txt.Font]
+	atlas, ok := atlasCache[txt.Font]
 	if !ok {
 		// Generate texture first
-		atlas = txt.Font.generateFontAtlas(UnicodeCap)
-		atlasCache[*txt.Font] = atlas
+		if txt.Font.Letters == "" {
+			atlas = txt.Font.generateFontAtlas(Letters)
+		} else {
+			atlas = txt.Font.generateFontAtlas([]rune(txt.Font.Letters))
+		}
+		atlasCache[txt.Font] = atlas
 	}
 
 	if atlas.Texture != l.lastTexture {
@@ -1299,7 +1325,7 @@ var (
 
 	BlendmapShader = &blendmapShader{cameraEnabled: true}
 	shadersSet     bool
-	atlasCache     = make(map[Font]FontAtlas)
+	atlasCache     = make(map[*Font]FontAtlas)
 	shaders        = []Shader{
 		DefaultShader,
 		HUDShader,

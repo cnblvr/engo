@@ -24,12 +24,13 @@ var (
 // including the Size and Color. A separate font will have to be generated to get
 // different sizes and colors of the same font file.
 type Font struct {
-	URL  string
-	Size float64
-	BG   color.Color
-	FG   color.Color
-	TTF  *truetype.Font
-	face font.Face
+	URL     string
+	Letters string // if this empty, using common.Letters
+	Size    float64
+	BG      color.Color
+	FG      color.Color
+	TTF     *truetype.Font
+	face    font.Face
 }
 
 // Create is for loading fonts from the disk, given a location
@@ -172,12 +173,12 @@ func (f *Font) Render(text string) Texture {
 }
 
 // generateFontAtlas generates the font atlas for this given font, using the first `c` Unicode characters.
-func (f *Font) generateFontAtlas(c int) FontAtlas {
+func (f *Font) generateFontAtlas(rs []rune) FontAtlas {
 	atlas := FontAtlas{
-		XLocation: make([]float32, c),
-		YLocation: make([]float32, c),
-		Width:     make([]float32, c),
-		Height:    make([]float32, c),
+		XLocation: make(map[rune]float32, len(rs)),
+		YLocation: make(map[rune]float32, len(rs)),
+		Width:     make(map[rune]float32, len(rs)),
+		Height:    make(map[rune]float32, len(rs)),
 	}
 
 	currentX := float32(0)
@@ -203,17 +204,17 @@ func (f *Font) generateFontAtlas(c int) FontAtlas {
 	lineBuffer := float32(lineHeight.Ceil()) / 2
 	xBuffer := float32(10)
 
-	for i := 0; i < c; i++ {
-		_, adv, ok := d.Face.GlyphBounds(rune(i))
+	for idxr, r := range rs {
+		_, adv, ok := d.Face.GlyphBounds(r)
 		if !ok {
 			continue
 		}
 		currentX += xBuffer
 
-		atlas.Width[i] = float32(adv.Ceil())
-		atlas.Height[i] = float32(lineHeight.Ceil()) + lineBuffer
-		atlas.XLocation[i] = currentX
-		atlas.YLocation[i] = currentY
+		atlas.Width[r] = float32(adv.Ceil())
+		atlas.Height[r] = float32(lineHeight.Ceil()) + lineBuffer
+		atlas.XLocation[r] = currentX
+		atlas.YLocation[r] = currentY
 
 		currentX += float32(adv.Ceil()) + xBuffer
 
@@ -221,7 +222,7 @@ func (f *Font) generateFontAtlas(c int) FontAtlas {
 			atlas.TotalWidth = currentX
 		}
 
-		if currentX > 1024 || i >= c-1 {
+		if currentX > 1024 || idxr >= len(rs)-1 {
 			currentX = 0
 			currentY += float32(lineHeight.Ceil()) + lineBuffer
 			atlas.TotalHeight += float32(lineHeight.Ceil()) + lineBuffer
@@ -233,13 +234,13 @@ func (f *Font) generateFontAtlas(c int) FontAtlas {
 	draw.Draw(actual, actual.Bounds(), image.NewUniform(f.BG), image.ZP, draw.Src)
 	d.Dst = actual
 
-	for i := 0; i < c; i++ {
-		_, _, ok := d.Face.GlyphBounds(rune(i))
+	for _, r := range rs {
+		_, _, ok := d.Face.GlyphBounds(r)
 		if !ok {
 			continue
 		}
-		d.Dot = fixed.P(int(atlas.XLocation[i]), int(atlas.YLocation[i]+float32(lineHeight.Ceil())))
-		d.DrawBytes([]byte(string(rune(i))))
+		d.Dot = fixed.P(int(atlas.XLocation[r]), int(atlas.YLocation[r]+float32(lineHeight.Ceil())))
+		d.DrawBytes([]byte(string(r)))
 	}
 
 	imObj := NewImageObject(actual)
@@ -250,21 +251,21 @@ func (f *Font) generateFontAtlas(c int) FontAtlas {
 
 // GenerateFontAtlas generates the font atlas for this given font, using the first `c` Unicode characters.
 // This should only be used if you are writing your own custom text shader.
-func (f *Font) GenerateFontAtlas(c int) FontAtlas {
-	return f.generateFontAtlas(c)
+func (f *Font) GenerateFontAtlas(rs []rune) FontAtlas {
+	return f.generateFontAtlas(rs)
 }
 
 // A FontAtlas is a representation of some of the Font characters, as an image
 type FontAtlas struct {
 	Texture *gl.Texture
 	// XLocation contains the X-coordinate of the starting position of all characters
-	XLocation []float32
+	XLocation map[rune]float32
 	// YLocation contains the Y-coordinate of the starting position of all characters
-	YLocation []float32
+	YLocation map[rune]float32
 	// Width contains the width in pixels of all the characters, including the spacing between characters
-	Width []float32
+	Width map[rune]float32
 	// Height contains the height in pixels of all the characters
-	Height []float32
+	Height map[rune]float32
 	// TotalWidth is the total amount of pixels the `FontAtlas` is wide; useful for determining the `Viewport`,
 	// which is relative to this value.
 	TotalWidth float32
@@ -297,11 +298,15 @@ func (t Text) Texture() *gl.Texture { return nil }
 
 // Width returns the width of the Text generated from a FontAtlas. This implements the common.Drawable interface.
 func (t Text) Width() float32 {
-	atlas, ok := atlasCache[*t.Font]
+	atlas, ok := atlasCache[t.Font]
 	if !ok {
 		// Generate texture first
-		atlas = t.Font.generateFontAtlas(UnicodeCap)
-		atlasCache[*t.Font] = atlas
+		if t.Font.Letters == "" {
+			atlas = t.Font.generateFontAtlas(Letters)
+		} else {
+			atlas = t.Font.generateFontAtlas([]rune(t.Font.Letters))
+		}
+		atlasCache[t.Font] = atlas
 	}
 
 	var currentX float32
@@ -336,7 +341,7 @@ func (t Text) Width() float32 {
 			continue
 		case r == ' ':
 			break
-		case r < 32: // all system stuff should be ignored
+		case r < ' ': // all system stuff should be ignored
 			continue
 		}
 
@@ -350,11 +355,15 @@ func (t Text) Width() float32 {
 
 // Height returns the height the Text generated from a FontAtlas. This implements the common.Drawable interface.
 func (t Text) Height() float32 {
-	atlas, ok := atlasCache[*t.Font]
+	atlas, ok := atlasCache[t.Font]
 	if !ok {
 		// Generate texture first
-		atlas = t.Font.generateFontAtlas(UnicodeCap)
-		atlasCache[*t.Font] = atlas
+		if t.Font.Letters == "" {
+			atlas = t.Font.generateFontAtlas(Letters)
+		} else {
+			atlas = t.Font.generateFontAtlas([]rune(t.Font.Letters))
+		}
+		atlasCache[t.Font] = atlas
 	}
 
 	var currentX float32
@@ -376,7 +385,7 @@ func (t Text) Height() float32 {
 			if t.MaxWidth < currentX + atlas.Width[char] + float32(t.Font.Size)*t.LetterSpacing + futureWidth {
 				currentX = 0
 				if tallest == 0 {
-					tallest = atlas.Height[113] + t.LineSpacing*atlas.Height[113]
+					tallest = atlas.Height['q'] + t.LineSpacing*atlas.Height['q']
 				}
 				totalY += tallest
 				tallest = float32(0)
@@ -387,13 +396,13 @@ func (t Text) Height() float32 {
 		switch {
 		case char == '\n':
 			if tallest == 0 {
-				tallest = atlas.Height[113] + t.LineSpacing*atlas.Height[113]
+				tallest = atlas.Height['q'] + t.LineSpacing*atlas.Height['q']
 			}
 			totalY += tallest
 			tallest = float32(0)
 			currentX = 0
 			continue
-		case char < 32: // all system stuff should be ignored
+		case char < ' ': // all system stuff should be ignored
 			continue
 		}
 		currentX += atlas.Width[char] + float32(t.Font.Size)*t.LetterSpacing
