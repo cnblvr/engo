@@ -200,7 +200,7 @@ func (f *Font) generateFontAtlas(rs []rune) FontAtlas {
 		Hinting: font.HintingNone,
 	})
 
-	lineHeight := d.Face.Metrics().Height
+	lineHeight := fixed.Int26_6(int32(d.Face.Metrics().Height)+2)
 	lineBuffer := float32(lineHeight.Ceil()) / 2
 	xBuffer := float32(10)
 
